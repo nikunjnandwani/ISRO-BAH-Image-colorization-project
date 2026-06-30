@@ -1,0 +1,28 @@
+# PyTorch / Models
+*.pth
+checkpoints/
+outputs/
+
+# Data
+archive/
+archive.zip
+prepared_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+
+# Logs
+logs/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db

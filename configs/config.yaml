@@ -1,0 +1,100 @@
+# ===================================================================
+# IR Image Colorization & Enhancement Pipeline - Configuration
+# ISRO BAH 2026 Hackathon
+# ===================================================================
+
+paths:
+  archive_dir: "archive"
+  prepared_dir: "prepared_data"
+  checkpoint_dir: "checkpoints"
+  output_dir: "outputs"
+  log_dir: "logs"
+
+# ─── Data Pipeline ─────────────────────────────────────────────────
+data:
+  patch_size: 128
+  stride: 96
+  max_nan_ratio: 0.15
+
+  # Band indices (0-indexed into the 7-band GeoTIFF)
+  # Idx 0: SR_B2 (Blue)   Idx 1: SR_B3 (Green)  Idx 2: SR_B4 (Red)
+  # Idx 3: SR_B5 (NIR)    Idx 4: SR_B6 (SWIR1)  Idx 5: SR_B7 (SWIR2)
+  # Idx 6: ST_B10 (Thermal, native 100m resampled to 30m)
+  rgb_band_indices: [2, 1, 0]     # Red(B4), Green(B3), Blue(B2) → model output
+  ir_band_indices: [3, 4, 5, 6]   # NIR, SWIR1, SWIR2, Thermal → model input
+  thermal_band_index: 6
+
+  # Region → split assignment
+  train_files:
+    - "landsat_delhi_ncr.tif"
+    - "landsat_rajasthan.tif"
+    - "landsat_gangetic_plain-0000000000-0000000000.tif"
+    - "landsat_gangetic_plain-0000000000-0000008960.tif"
+  val_files:
+    - "landsat_himalayan_foot.tif"
+  test_files:
+    - "landsat_sundarbans.tif"
+    - "landsat_western_ghats.tif"
+
+  # Normalization
+  reflectance_clip: [0.0, 0.5]     # Clip surface-reflectance bands
+  thermal_mean: 300.0               # Approx Kelvin mean for B10
+  thermal_std: 10.0                 # Approx Kelvin std for B10
+
+  augmentation:
+    random_flip: true
+    random_rotate90: true
+
+# ─── Super-Resolution (ESRGAN for B10) ─────────────────────────────
+sr:
+  scale_factor: 4
+  num_rrdb_blocks: 4
+  num_features: 64
+  growth_channels: 32
+  residual_scaling: 0.2
+
+  pretrain_lr: 2.0e-4
+  gan_lr: 1.0e-4
+  pretrain_epochs: 50
+  gan_epochs: 50
+  batch_size: 16
+  lambda_pixel: 1.0
+  lambda_adv: 0.005
+  lambda_perceptual: 1.0
+
+# ─── Colorization (Enhanced Pix2Pix) ──────────────────────────────
+colorize:
+  # Generator (U-Net)
+  in_channels: 4           # B5, B6, B7, B10_SR
+  out_channels: 3           # R, G, B
+  ngf: 64
+  n_downsample: 7
+  use_dropout: true
+  dropout_rate: 0.5
+
+  # Discriminator (PatchGAN)
+  ndf: 64
+  n_disc_layers: 3
+
+  # Loss weights
+  lambda_l1: 100.0
+  lambda_perceptual: 10.0
+  lambda_semantic: 5.0
+  lambda_adv: 1.0
+
+  # Optimiser
+  lr_g: 2.0e-4
+  lr_d: 2.0e-4
+  beta1: 0.5
+  beta2: 0.999
+
+  # Schedule
+  epochs: 200
+  batch_size: 8
+  lr_decay_start: 100
+
+# ─── Evaluation ───────────────────────────────────────────────────
+eval:
+  fid_batch_size: 32
+  save_visualizations: true
+  num_vis_samples: 20
